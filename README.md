@@ -1,10 +1,11 @@
 # SvelteKit Remote Functions
 
 This is a SvelteKit CRUD app example using:
-- [Remote functions](https://svelte.dev/docs/kit/remote-functions) for type-safe communication between client and server
-- [Better Auth](https://www.better-auth.com/) for authentication
-- [Drizzle ORM](https://orm.drizzle.team/) for working with the SQLite database
-- [Pico CSS](https://picocss.com/) for styling
+
+-   [Remote functions](https://svelte.dev/docs/kit/remote-functions) for type-safe communication between client and server
+-   [Better Auth](https://www.better-auth.com/) for authentication
+-   [Drizzle ORM](https://orm.drizzle.team/) for working with the SQLite database
+-   [Tailwind CSS](https://tailwindcss.com/) for styling
 
 ## Setup
 

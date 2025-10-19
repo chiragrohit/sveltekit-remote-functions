@@ -1,12 +1,15 @@
 <script lang="ts">
-	import { getUser, signout } from '$lib/api/auth.remote'
+	import { getUser, signout } from "$lib/api/auth.remote";
+	import { Button } from "$lib/components/ui/button";
 
-	const user = await getUser()
+	const user = await getUser();
 </script>
 
-<h2>Admin</h2>
-<p>Welcome, {user.name}!</p>
+<div class="space-y-6">
+	<h2 class="text-2xl font-bold">Admin</h2>
+	<p>Welcome, {user.name}!</p>
 
-<form {...signout}>
-	<button type="submit">Sign out</button>
-</form>
+	<form {...signout}>
+		<Button type="submit" variant="outline">Sign out</Button>
+	</form>
+</div>
