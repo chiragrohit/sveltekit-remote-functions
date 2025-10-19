@@ -2,7 +2,7 @@
 	import { getPosts } from "$lib/api/posts.remote";
 </script>
 
-<h1 class="text-3xl font-bold mb-6">🔥 Latest posts</h1>
+<h1 class="text-3xl font-bold mb-6">Latest posts</h1>
 
 <div class="space-y-4">
 	{#each await getPosts() as post}

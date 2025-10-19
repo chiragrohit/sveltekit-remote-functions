@@ -12,7 +12,7 @@
 <div class="min-h-screen bg-background">
 	<header class="border-b">
 		<div class="container flex items-center justify-between py-4">
-			<a href="/" class="text-xl font-bold">🔥 Svelte Tricks</a>
+			<a href="/" class="text-xl font-bold">Svelte Tricks</a>
 			<a href="/admin" class="text-sm font-medium hover:underline"
 				>⚙️ Admin</a
 			>
