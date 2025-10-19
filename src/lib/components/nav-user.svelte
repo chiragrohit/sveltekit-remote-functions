@@ -7,10 +7,11 @@
 	import * as Avatar from "$lib/components/ui/avatar/index.js";
 	import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
-
-	let { user }: { user: { name: string; email: string; avatar: string } } = $props();
+	import { signout, getUser } from "$lib/api/auth.remote";
 
 	const sidebar = Sidebar.useSidebar();
+
+	let user = await getUser();
 </script>
 
 <Sidebar.Menu>
@@ -24,12 +25,23 @@
 						class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
 					>
 						<Avatar.Root class="size-8 rounded-lg grayscale">
-							<Avatar.Image src={user.avatar} alt={user.name} />
-							<Avatar.Fallback class="rounded-lg">CN</Avatar.Fallback>
+							<!-- <Avatar.Image src={user?.avatar} alt={user.name} /> -->
+							<Avatar.Fallback class="rounded-lg">
+								{user.name
+									.split(" ")
+									.map((n) => n[0])
+									.join("")
+									.toUpperCase()}
+							</Avatar.Fallback>
 						</Avatar.Root>
-						<div class="grid flex-1 text-left text-sm leading-tight">
-							<span class="truncate font-medium">{user.name}</span>
-							<span class="text-muted-foreground truncate text-xs">
+						<div
+							class="grid flex-1 text-left text-sm leading-tight"
+						>
+							<span class="truncate font-medium">{user.name}</span
+							>
+							<span
+								class="text-muted-foreground truncate text-xs"
+							>
 								{user.email}
 							</span>
 						</div>
@@ -44,14 +56,27 @@
 				sideOffset={4}
 			>
 				<DropdownMenu.Label class="p-0 font-normal">
-					<div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+					<div
+						class="flex items-center gap-2 px-1 py-1.5 text-left text-sm"
+					>
 						<Avatar.Root class="size-8 rounded-lg">
-							<Avatar.Image src={user.avatar} alt={user.name} />
-							<Avatar.Fallback class="rounded-lg">CN</Avatar.Fallback>
+							<!-- <Avatar.Image src={user.avatar} alt={user.name} /> -->
+							<Avatar.Fallback class="rounded-lg">
+								{user.name
+									.split(" ")
+									.map((n) => n[0])
+									.join("")
+									.toUpperCase()}
+							</Avatar.Fallback>
 						</Avatar.Root>
-						<div class="grid flex-1 text-left text-sm leading-tight">
-							<span class="truncate font-medium">{user.name}</span>
-							<span class="text-muted-foreground truncate text-xs">
+						<div
+							class="grid flex-1 text-left text-sm leading-tight"
+						>
+							<span class="truncate font-medium">{user.name}</span
+							>
+							<span
+								class="text-muted-foreground truncate text-xs"
+							>
 								{user.email}
 							</span>
 						</div>
@@ -61,7 +86,12 @@
 				<DropdownMenu.Group>
 					<DropdownMenu.Item>
 						<UserCircleIcon />
-						Account
+						<a
+							class="w-full h-full text-sm gap-2"
+							href="/dashboard/profile"
+						>
+							Profile
+						</a>
 					</DropdownMenu.Item>
 					<DropdownMenu.Item>
 						<CreditCardIcon />
@@ -73,9 +103,17 @@
 					</DropdownMenu.Item>
 				</DropdownMenu.Group>
 				<DropdownMenu.Separator />
-				<DropdownMenu.Item>
-					<LogoutIcon />
-					Log out
+
+				<DropdownMenu.Item class="p-0">
+					<form {...signout} class="w-full">
+						<button
+							type="submit"
+							class="flex items-center w-full h-full px-2 py-1.5 text-sm gap-2 cursor-pointer"
+						>
+							<LogoutIcon />
+							Sign out
+						</button>
+					</form>
 				</DropdownMenu.Item>
 			</DropdownMenu.Content>
 		</DropdownMenu.Root>

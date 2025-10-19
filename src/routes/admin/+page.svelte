@@ -1,7 +1,5 @@
 <script lang="ts">
 	import { getUser, signout } from "$lib/api/auth.remote";
-	import { Button } from "$lib/components/ui/button";
-
 	const user = await getUser();
 </script>
 

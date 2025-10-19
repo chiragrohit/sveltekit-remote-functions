@@ -1,7 +1,7 @@
 import { error, redirect } from "@sveltejs/kit";
 import { command, form, getRequestEvent, query } from "$app/server";
 import { eq, sql } from "drizzle-orm";
-import { z } from "zod/v4";
+import { z } from "zod";
 import { db } from "$lib/server/database";
 import * as table from "$lib/server/database/schema";
 import {
@@ -37,8 +37,19 @@ export const getAuthorPosts = query(async () => {
 
 export const getPost = query(z.string(), async (slug) => {
 	const [post] = await db
-		.select()
+		.select({
+			id: table.posts.id,
+			authorId: table.posts.authorId,
+			title: table.posts.title,
+			slug: table.posts.slug,
+			content: table.posts.content,
+			likes: table.posts.likes,
+			createdAt: table.posts.createdAt,
+			updatedAt: table.posts.updatedAt,
+			authorName: table.user.name,
+		})
 		.from(table.posts)
+		.leftJoin(table.user, eq(table.posts.authorId, table.user.id))
 		.where(eq(table.posts.slug, slug));
 	if (!post) error(404, "Post not found");
 	return post;
@@ -54,6 +65,9 @@ export const createPost = form(createPostSchema, async (post) => {
 export const updatePost = form(
 	updatePostSchema,
 	async ({ id, title, slug, content }) => {
+		// Check authentication
+		requireAuth();
+
 		await delay(300);
 		await db
 			.update(table.posts)
@@ -63,6 +77,9 @@ export const updatePost = form(
 );
 
 export const removePost = form(updatePostSchema, async ({ id }) => {
+	// Check authentication
+	requireAuth();
+
 	await delay(300);
 	await db.delete(table.posts).where(eq(table.posts.id, id));
 	redirect(303, `/admin`);
@@ -77,6 +94,9 @@ export const getPostLikes = query(z.number(), async (id) => {
 });
 
 export const likePost = command(z.number(), async (id) => {
+	// Check authentication
+	requireAuth();
+
 	await delay(2000);
 	await db
 		.update(table.posts)
@@ -94,6 +114,16 @@ export const getPostComments = query(z.number(), async (id) => {
 });
 
 export const postComment = form(postCommentSchema, async (comment) => {
+	// Check authentication
+	const user = requireAuth();
+
+	// Use the authenticated user's name as the author
+	const commentData = {
+		postId: comment.postId,
+		comment: comment.comment,
+		author: user.name || user.email || "Anonymous",
+	};
+
 	await delay(300);
-	await db.insert(table.comments).values(comment);
+	await db.insert(table.comments).values(commentData);
 });
