@@ -1,7 +1,7 @@
 import { error, redirect } from "@sveltejs/kit";
 import { command, form, getRequestEvent, query } from "$app/server";
 import { eq, sql } from "drizzle-orm";
-import { z } from "zod/mini";
+import { z } from "zod/v4";
 import { db } from "$lib/server/database";
 import * as table from "$lib/server/database/schema";
 import {

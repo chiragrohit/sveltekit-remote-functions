@@ -9,7 +9,7 @@
 	<aside class="w-64 border-r bg-muted p-4">
 		<div class="flex items-center justify-between mb-6">
 			<h2 class="text-xl font-bold">🪶 Posts</h2>
-			<Button asChild size="sm">
+			<Button size="sm">
 				<a href="/admin/create">+Create</a>
 			</Button>
 		</div>
