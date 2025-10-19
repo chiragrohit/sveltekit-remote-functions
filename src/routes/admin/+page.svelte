@@ -8,8 +8,4 @@
 <div class="space-y-6">
 	<h2 class="text-2xl font-bold">Admin</h2>
 	<p>Welcome, {user.name}!</p>
-
-	<form {...signout}>
-		<Button type="submit" variant="outline">Sign out</Button>
-	</form>
 </div>
