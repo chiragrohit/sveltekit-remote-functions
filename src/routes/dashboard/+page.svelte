@@ -3,10 +3,12 @@
 	import { getAllContents } from "$lib/api/content.remote";
 	import { onMount } from "svelte";
 	import ContentCard from "$lib/components/content-card.svelte";
+	import { authClient } from "$lib/auth-client";
 
 	let contents = $state<any[]>([]);
 	let isLoading = $state(false);
 	let error = $state<string | null>(null);
+	let currentUserId = $state<string | null>(null);
 
 	// Function to fetch all contents
 	const fetchContents = async () => {
@@ -28,6 +30,12 @@
 
 	// Fetch contents when component mounts
 	onMount(async () => {
+		// Get current user ID
+		const sessionData = await authClient.getSession();
+		currentUserId = sessionData?.data?.user?.id || null;
+
+        console.log("sessionData", sessionData);
+
 		await fetchContents();
 	});
 </script>
@@ -51,7 +59,7 @@
 	{:else}
 		<div class="flex flex-wrap gap-6 items-center justify-center">
 			{#each contents as content}
-				<ContentCard {content} />
+				<ContentCard {content} {currentUserId} />
 			{:else}
 				<div class="text-center py-8 w-full">
 					<p class="text-gray-500">No contents available</p>

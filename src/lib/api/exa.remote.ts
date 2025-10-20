@@ -70,9 +70,10 @@ export const search = query(SearchParamsSchema, async (params) => {
 				type: params.type,
 				numResults: params.maxResults,
 				contents: {
-					text: true,
+					text: {
+						includeHtmlTags: true,
+					},
 				},
-				imageLinks: 1, // Request image links
 			}),
 		});
 
@@ -91,9 +92,7 @@ export const search = query(SearchParamsSchema, async (params) => {
 				id: item.id || index.toString(),
 				title: item.title || "Untitled",
 				url: item.url,
-				content: item.text
-					? item.text.substring(0, 300) + "..."
-					: undefined,
+				content: item.text || undefined,
 				score: item.score,
 				publishedDate: item.publishedDate,
 				image: item.image, // Include image if available
@@ -108,7 +107,7 @@ export const search = query(SearchParamsSchema, async (params) => {
 
 		// Store results in the contents table asynchronously after returning the response
 		// This ensures the user gets the results immediately without waiting for database operations
-		storeSearchResults(results, data, user.id).catch((error) => {
+		storeSearchResults(results, user.id).catch((error) => {
 			console.error("Failed to store search results:", error);
 		});
 
@@ -125,11 +124,7 @@ function generateContentHash(content: string): string {
 }
 
 // Function to store search results in the database asynchronously
-async function storeSearchResults(
-	results: SearchResult[],
-	fullResponse: any,
-	userId: string
-) {
+async function storeSearchResults(results: SearchResult[], userId: string) {
 	for (const result of results) {
 		try {
 			// Generate hash for content deduplication
@@ -157,7 +152,7 @@ async function storeSearchResults(
 					publishedAt: result.publishedDate
 						? new Date(result.publishedDate)
 						: null,
-					rawData: fullResponse,
+					rawData: result,
 				});
 			}
 		} catch (error) {
