@@ -2,13 +2,13 @@
 	import { Input } from "$lib/components/ui/input";
 	import { Button } from "$lib/components/ui/button";
 	import { goto } from "$app/navigation";
-	import { page } from "$app/stores";
+	import { page } from "$app/state";
 
 	let searchQuery = $state("");
 
 	// Initialize search query from URL on component mount
 	$effect(() => {
-		const url = new URL($page.url);
+		const url = new URL(page.url);
 		searchQuery = url.searchParams.get("q") || "";
 	});
 
@@ -16,8 +16,15 @@
 		event.preventDefault();
 		if (!searchQuery.trim()) return;
 
-		// Redirect to dashboard search with query parameter
-		goto(`/dashboard/search?q=${encodeURIComponent(searchQuery)}`);
+		// Check if we're on the feed page
+		const isFeedPage = page.url.pathname.startsWith("/feed");
+
+		// Redirect to appropriate search page with query parameter
+		if (isFeedPage) {
+			goto(`/feed/search?q=${encodeURIComponent(searchQuery)}`);
+		} else {
+			goto(`/dashboard/search?q=${encodeURIComponent(searchQuery)}`);
+		}
 	};
 </script>
 

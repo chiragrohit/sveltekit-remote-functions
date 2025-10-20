@@ -4,6 +4,7 @@
 	import { Image, Globe, Lock } from "@lucide/svelte";
 	import { Button } from "$lib/components/ui/button";
 	import { Badge } from "$lib/components/ui/badge";
+	import { page } from "$app/state";
 
 	export let content: any = {};
 	export let isLoading: boolean = false;
@@ -87,7 +88,14 @@
 	function goToArticle() {
 		// For dashboard content with ID
 		if (content.id) {
-			goto(`/dashboard/article/${content.id}`);
+			// Check if we're on the feed page
+			const isFeedPage = page.url.pathname.startsWith("/feed");
+
+			if (isFeedPage) {
+				goto(`/feed/${content.id}`);
+			} else {
+				goto(`/dashboard/article/${content.id}`);
+			}
 		}
 		// For search results with URL
 		else if (content.url) {

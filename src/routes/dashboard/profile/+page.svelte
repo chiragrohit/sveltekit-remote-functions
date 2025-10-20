@@ -376,7 +376,7 @@
 						<div class="flex items-center gap-3">
 							<img
 								src={user.image}
-								alt="Profile image"
+								alt="Profile"
 								class="w-16 h-16 rounded-full object-cover"
 							/>
 						</div>

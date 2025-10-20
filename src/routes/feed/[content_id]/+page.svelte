@@ -1,16 +1,17 @@
 <script lang="ts">
 	import {
-		getContentById,
-		updateLikeDislike,
-		getUserReaction,
+		getPublicContentById,
+		getContentComments,
 		getContentLikes,
 		getContentDislikes,
-		toggleContentVisibility,
-		getContentComments,
+	} from "$lib/api/feed.remote";
+	import {
 		postContentComment,
+		updateLikeDislike,
+		getUserReaction as getAuthenticatedUserReaction,
 	} from "$lib/api/content.remote";
 	import { onMount } from "svelte";
-	import type { Content } from "$lib/api/content.remote";
+	import type { Content } from "$lib/api/feed.remote";
 	import Skeleton from "$lib/components/ui/skeleton/skeleton.svelte";
 	import {
 		UserRoundPen,
@@ -19,8 +20,6 @@
 		ThumbsUp,
 		ThumbsDown,
 		ExternalLink,
-		Lock,
-		Globe,
 	} from "@lucide/svelte";
 	import { Button } from "$lib/components/ui/button";
 	import { Textarea } from "$lib/components/ui/textarea";
@@ -32,18 +31,19 @@
 		CardHeader,
 		CardTitle,
 	} from "$lib/components/ui/card";
+	import { goto } from "$app/navigation";
 
 	let { params } = $props();
 
 	let content: Content | null = $state(null);
 	let isLoading = $state(true);
 	let errorMessage = $state<string | null>(null);
-	let userReaction = $state<string | null>(null);
-	let likesCount = $state(0);
-	let dislikesCount = $state(0);
 	let currentUserId = $state<string | null>(null);
 	let comments = $state<any[]>([]);
 	let newComment = $state("");
+	let userReaction = $state<string | null>(null);
+	let likesCount = $state(0);
+	let dislikesCount = $state(0);
 
 	// Function to format timestamp to readable date
 	function formatPublishedDate(dateValue: Date | null): string {
@@ -103,19 +103,23 @@
 			const sessionData = await authClient.getSession();
 			currentUserId = sessionData?.data?.user?.id || null;
 
-			const response = await getContentById({ id: contentId });
+			const response = await getPublicContentById({ id: contentId });
 			content = response.content;
 
-			// Get user's current reaction
-			const reaction = await getUserReaction({ contentId });
-			userReaction = reaction;
+			// Get comments
+			comments = await getContentComments({ contentId });
 
 			// Get initial counts
 			likesCount = await getContentLikes({ contentId });
 			dislikesCount = await getContentDislikes({ contentId });
 
-			// Get comments
-			comments = await getContentComments({ contentId });
+			// Get user's current reaction if logged in
+			if (currentUserId) {
+				const reaction = await getAuthenticatedUserReaction({
+					contentId,
+				});
+				userReaction = reaction;
+			}
 		} catch (err) {
 			console.error("Error fetching content:", err);
 			errorMessage = "Failed to load article";
@@ -124,9 +128,19 @@
 		}
 	});
 
+	// Function to handle login redirect
+	function handleLoginRedirect() {
+		goto("/auth/login");
+	}
+
+	// Check if user is logged in
+	function isLoggedIn(): boolean {
+		return !!currentUserId;
+	}
+
 	// Function to handle like/dislike
 	async function handleReaction(reactionType: "like" | "dislike") {
-		if (!content) return;
+		if (!content || !isLoggedIn()) return;
 
 		try {
 			// Call the command
@@ -136,7 +150,9 @@
 			});
 
 			// Get the updated reaction status
-			const reaction = await getUserReaction({ contentId: content.id });
+			const reaction = await getAuthenticatedUserReaction({
+				contentId: content.id,
+			});
 			userReaction = reaction;
 
 			// Update counts
@@ -145,30 +161,6 @@
 		} catch (err) {
 			console.error("Error updating reaction:", err);
 		}
-	}
-
-	// Function to toggle content visibility
-	async function handleVisibilityToggle() {
-		if (!content) return;
-
-		try {
-			// Call the command
-			const result = await toggleContentVisibility({
-				contentId: content.id,
-			});
-
-			// Update the content visibility
-			if (content) {
-				content.visibility = result.visibility;
-			}
-		} catch (err) {
-			console.error("Error toggling visibility:", err);
-		}
-	}
-
-	// Check if the current user owns this content
-	function isContentOwner(): boolean {
-		return content?.userId === currentUserId;
 	}
 </script>
 
@@ -267,26 +259,6 @@
 						</span>
 					{/if}
 
-					<!-- Visibility Toggle - only show for content owner -->
-					{#if isContentOwner()}
-						<span class="flex items-center gap-2">
-							<Button
-								variant="outline"
-								size="sm"
-								class="flex items-center gap-2"
-								onclick={handleVisibilityToggle}
-							>
-								{#if content.visibility === "public"}
-									<Globe class="h-4 w-4" />
-									Public
-								{:else}
-									<Lock class="h-4 w-4" />
-									Private
-								{/if}
-							</Button>
-						</span>
-					{/if}
-
 					<!-- LikesCount -->
 					<span class="flex items-center gap-2">
 						<Button
@@ -296,6 +268,7 @@
 							size="sm"
 							class="flex items-center gap-2"
 							onclick={() => handleReaction("like")}
+							disabled={!isLoggedIn()}
 						>
 							<ThumbsUp class="h-4 w-4" />
 							{likesCount}
@@ -310,6 +283,7 @@
 							size="sm"
 							class="flex items-center gap-2"
 							onclick={() => handleReaction("dislike")}
+							disabled={!isLoggedIn()}
 						>
 							<ThumbsDown class="h-4 w-4" />
 							{dislikesCount}
@@ -348,6 +322,7 @@
 			</CardHeader>
 			<CardContent>
 				<!-- Comments List -->
+
 				<div class="space-y-4 mb-6">
 					{#each comments as comment}
 						<div class="border rounded-lg p-4">
@@ -369,24 +344,26 @@
 				</div>
 
 				<!-- Comment Form -->
-				{#if currentUserId}
+				{#if isLoggedIn()}
 					<div class="border-t pt-4">
 						<h3 class="text-lg font-semibold mb-3">
 							Leave a comment
 						</h3>
 						<form
-							{...postContentComment.enhance(({ submit }) => {
-								submit().then(() => {
-									// Clear the comment field
-									newComment = "";
-									// Refresh comments
-									getContentComments({
-										contentId: content?.id || "",
-									}).then((newComments) => {
-										comments = newComments;
+							{...postContentComment.enhance(
+								({ submit }: any) => {
+									submit().then(() => {
+										// Clear the comment field
+										newComment = "";
+										// Refresh comments
+										getContentComments({
+											contentId: content?.id || "",
+										}).then((newComments) => {
+											comments = newComments;
+										});
 									});
-								});
-							})}
+								}
+							)}
 							class="space-y-4"
 						>
 							<div class="space-y-2">
@@ -433,8 +410,12 @@
 					<p class="text-muted-foreground text-center py-4">
 						Please <a
 							href="/auth/login"
-							class="text-primary hover:underline">log in</a
-						> to post a comment.
+							class="text-primary hover:underline"
+							onclick={(e) => {
+								e.preventDefault();
+								handleLoginRedirect();
+							}}>log in</a
+						> to post a comment or like/dislike content.
 					</p>
 				{/if}
 			</CardContent>

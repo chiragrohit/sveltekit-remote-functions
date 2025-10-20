@@ -684,10 +684,7 @@ export const getContentComments = query(
 					id: contentComments.id,
 					userId: contentComments.userId,
 					comment: contentComments.comment,
-					createdAt:
-						sql`datetime(${contentComments.createdAt})`.mapWith(
-							Date
-						),
+					createdAt: sql`datetime(${contentComments.createdAt})`,
 					username: profiles.username,
 					fullName: profiles.fullName,
 				})
