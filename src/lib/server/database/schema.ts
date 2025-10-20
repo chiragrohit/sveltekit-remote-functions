@@ -166,7 +166,7 @@ export const contents = sqliteTable("contents", {
 	userId: text("user_id").references(() => profiles.id, {
 		onDelete: "cascade",
 	}),
-	visibility: text("visibility").default("public"),
+	visibility: text("visibility").default("private"),
 	showOnProfile: integer("show_on_profile", { mode: "boolean" }).default(
 		true
 	),

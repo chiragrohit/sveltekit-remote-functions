@@ -8,7 +8,7 @@
 
 <header class="border-b">
 	<div class="flex items-center justify-between py-4 px-4">
-		<a href="/" class="text-xl font-bold">Svelte Tricks</a>
+		<a href="/" class="text-xl font-bold">CogniRivus</a>
 		<div class="flex items-center gap-4">
 			{#if isAuth}
 				<a href="/blog" class="text-sm font-medium hover:underline">

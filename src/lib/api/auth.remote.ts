@@ -5,13 +5,13 @@ import { signupSchema, loginSchema, updateNameSchema } from "$lib/schema/auth";
 
 export const signup = form(signupSchema, async (user) => {
 	await auth.api.signUpEmail({ body: user });
-	redirect(307, `/admin`);
+	redirect(307, `/dashboard`);
 });
 
 export const login = form(loginSchema, async (user) => {
 	const { request } = getRequestEvent();
 	await auth.api.signInEmail({ body: user, headers: request.headers });
-	redirect(303, "/admin");
+	redirect(303, "/dashboard");
 });
 
 export const signout = form(async () => {
