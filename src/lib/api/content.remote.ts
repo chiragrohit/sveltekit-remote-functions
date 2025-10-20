@@ -1,10 +1,16 @@
-import { query, getRequestEvent, command } from "$app/server";
+import { query, getRequestEvent, command, form } from "$app/server";
 import { z } from "zod";
 import { db } from "$lib/server/database";
-import { contents, reactions } from "$lib/server/database/schema";
+import {
+	contents,
+	reactions,
+	contentComments,
+	profiles,
+} from "$lib/server/database/schema";
 import { desc, like, eq, or, sql, and } from "drizzle-orm";
 import { redirect } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
+import { contentCommentSchema } from "$lib/schema/content";
 
 // Define the content schema for truncated data
 // Note: The database returns Date objects for timestamp fields, not numbers
@@ -664,6 +670,74 @@ export const bulkDeleteContents = command(
 		} catch (error) {
 			console.error("Error bulk deleting contents:", error);
 			throw new Error("Failed to bulk delete contents");
+		}
+	}
+);
+
+// Get content comments
+export const getContentComments = query(
+	z.object({ contentId: z.string() }),
+	async ({ contentId }) => {
+		try {
+			const comments = await db
+				.select({
+					id: contentComments.id,
+					userId: contentComments.userId,
+					comment: contentComments.comment,
+					createdAt:
+						sql`datetime(${contentComments.createdAt})`.mapWith(
+							Date
+						),
+					username: profiles.username,
+					fullName: profiles.fullName,
+				})
+				.from(contentComments)
+				.leftJoin(profiles, eq(contentComments.userId, profiles.id))
+				.where(eq(contentComments.contentId, contentId))
+				.orderBy(desc(contentComments.createdAt));
+
+			return comments.map((comment) => ({
+				...comment,
+				displayName:
+					comment.fullName || comment.username || "Anonymous User",
+			}));
+		} catch (error) {
+			console.error("Error fetching content comments:", error);
+			return [];
+		}
+	}
+);
+
+// Post a comment on content
+export const postContentComment = form(
+	contentCommentSchema,
+	async (comment) => {
+		// Check authentication
+		const event = getRequestEvent() as RequestEvent;
+		if (!event.locals.user) {
+			throw redirect(303, "/auth/login");
+		}
+
+		const userId = event.locals.user.id;
+
+		// Verify that the userId in the request matches the authenticated user
+		if (comment.userId !== userId) {
+			throw new Error("Unauthorized: User ID mismatch");
+		}
+
+		try {
+			await db.insert(contentComments).values({
+				contentId: comment.contentId,
+				userId: comment.userId,
+				comment: comment.comment,
+			});
+
+			return {
+				success: true,
+			};
+		} catch (error) {
+			console.error("Error posting content comment:", error);
+			throw new Error("Failed to post comment");
 		}
 	}
 );

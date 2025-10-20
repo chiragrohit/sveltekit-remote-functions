@@ -6,11 +6,12 @@
 		getContentLikes,
 		getContentDislikes,
 		toggleContentVisibility,
+		getContentComments,
+		postContentComment,
 	} from "$lib/api/content.remote";
 	import { error } from "@sveltejs/kit";
 	import { onMount } from "svelte";
 	import type { Content } from "$lib/api/content.remote";
-	import { get } from "svelte/store";
 	import Skeleton from "$lib/components/ui/skeleton/skeleton.svelte";
 	import {
 		UserRoundPen,
@@ -23,7 +24,15 @@
 		Globe,
 	} from "@lucide/svelte";
 	import { Button } from "$lib/components/ui/button";
+	import { Textarea } from "$lib/components/ui/textarea";
+	import { Label } from "$lib/components/ui/label";
 	import { authClient } from "$lib/auth-client";
+	import {
+		Card,
+		CardContent,
+		CardHeader,
+		CardTitle,
+	} from "$lib/components/ui/card";
 
 	let { params } = $props();
 
@@ -34,6 +43,8 @@
 	let likesCount = $state(0);
 	let dislikesCount = $state(0);
 	let currentUserId = $state<string | null>(null);
+	let comments = $state<any[]>([]);
+	let newComment = $state("");
 
 	// Function to format timestamp to readable date
 	function formatPublishedDate(dateValue: Date | null): string {
@@ -48,6 +59,34 @@
 			year: "numeric",
 			month: "long",
 			day: "numeric",
+		});
+	}
+
+	// Function to format timestamp to readable date and time
+	function formatDateTime(dateValue: Date | string | null): string {
+		if (!dateValue) return "Unknown time";
+
+		// Convert string to Date if needed
+		let dateObj: Date;
+		if (typeof dateValue === "string") {
+			dateObj = new Date(dateValue);
+		} else if (dateValue instanceof Date) {
+			dateObj = dateValue;
+		} else {
+			return "Invalid time";
+		}
+
+		// Check if date is valid
+		if (isNaN(dateObj.getTime())) return "Invalid time";
+
+		// Format as "Month Day, Year at HH:MM AM/PM"
+		return dateObj.toLocaleString("en-US", {
+			year: "numeric",
+			month: "long",
+			day: "numeric",
+			hour: "numeric",
+			minute: "2-digit",
+			hour12: true,
 		});
 	}
 
@@ -75,6 +114,9 @@
 			// Get initial counts
 			likesCount = await getContentLikes({ contentId });
 			dislikesCount = await getContentDislikes({ contentId });
+
+			// Get comments
+			comments = await getContentComments({ contentId });
 		} catch (err) {
 			console.error("Error fetching content:", err);
 			errorMessage = "Failed to load article";
@@ -299,6 +341,105 @@
 				<p class="text-muted-foreground">No content available.</p>
 			{/if}
 		</div>
+
+		<!-- Comments Section -->
+		<Card>
+			<CardHeader>
+				<CardTitle>Comments ({comments.length})</CardTitle>
+			</CardHeader>
+			<CardContent>
+				<!-- Comments List -->
+				<div class="space-y-4 mb-6">
+					{#each comments as comment}
+						<div class="border rounded-lg p-4">
+							<div class="flex justify-between items-start mb-2">
+								<span class="font-semibold">
+									{comment.displayName}
+								</span>
+								<span class="text-sm text-muted-foreground">
+									{formatDateTime(comment.createdAt)}
+								</span>
+							</div>
+							<p class="mt-1">{comment.comment}</p>
+						</div>
+					{:else}
+						<p class="text-muted-foreground">
+							No comments yet. Be the first to comment!
+						</p>
+					{/each}
+				</div>
+
+				<!-- Comment Form -->
+				{#if currentUserId}
+					<div class="border-t pt-4">
+						<h3 class="text-lg font-semibold mb-3">
+							Leave a comment
+						</h3>
+						<form
+							{...postContentComment.enhance(({ submit }) => {
+								submit().then(() => {
+									// Clear the comment field
+									newComment = "";
+									// Refresh comments
+									getContentComments({
+										contentId: content?.id || "",
+									}).then((newComments) => {
+										comments = newComments;
+									});
+								});
+							})}
+							class="space-y-4"
+						>
+							<div class="space-y-2">
+								<Label for="comment">Comment</Label>
+								<Textarea
+									{...postContentComment.fields.comment.as(
+										"text"
+									)}
+									id="comment"
+									rows={4 as any}
+								/>
+								{#each postContentComment.fields.comment.issues() ?? [] as issue}
+									<p class="text-sm text-destructive">
+										{issue.message}
+									</p>
+								{/each}
+							</div>
+
+							<input
+								type="hidden"
+								name="contentId"
+								value={content?.id}
+							/>
+
+							<input
+								type="hidden"
+								name="userId"
+								value={currentUserId}
+							/>
+
+							<Button
+								type="submit"
+								disabled={!!postContentComment.pending}
+							>
+								{#if postContentComment.pending}
+									Posting...
+								{:else}
+									Post comment
+								{/if}
+							</Button>
+						</form>
+					</div>
+				{:else}
+					<p class="text-muted-foreground text-center py-4">
+						Please <a
+							href="/auth/login"
+							class="text-primary hover:underline">log in</a
+						> to post a comment.
+					</p>
+				{/if}
+			</CardContent>
+		</Card>
 	</div>
 {:else}
 	<div class="flex justify-center items-center min-h-screen">

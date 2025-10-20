@@ -94,6 +94,19 @@ export const comments = sqliteTable("comments", {
 	...timestamps,
 });
 
+// Content Comments table (new)
+export const contentComments = sqliteTable("content_comments", {
+	id: integer("id").primaryKey({ autoIncrement: true }),
+	contentId: text("content_id")
+		.references(() => contents.id, { onDelete: "cascade" })
+		.notNull(),
+	userId: text("user_id")
+		.references(() => profiles.id, { onDelete: "cascade" })
+		.notNull(),
+	comment: text("comment").notNull(),
+	...timestamps,
+});
+
 // Replicating Supabase tables
 export const profiles = sqliteTable("profiles", {
 	id: text("id")

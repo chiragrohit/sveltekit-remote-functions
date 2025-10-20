@@ -107,7 +107,14 @@ export const likePost = command(z.number(), async (id) => {
 
 export const getPostComments = query(z.number(), async (id) => {
 	const comments = await db
-		.select()
+		.select({
+			id: table.comments.id,
+			postId: table.comments.postId,
+			author: table.comments.author,
+			comment: table.comments.comment,
+			createdAt: sql`datetime(${table.comments.createdAt})`.mapWith(Date),
+			updatedAt: sql`datetime(${table.comments.updatedAt})`.mapWith(Date),
+		})
 		.from(table.comments)
 		.where(eq(table.comments.postId, id));
 	return comments;
