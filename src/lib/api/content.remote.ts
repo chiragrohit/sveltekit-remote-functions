@@ -540,3 +540,130 @@ export const getUserContents = query(
 		}
 	}
 );
+
+// Delete content by ID
+export const deleteContent = command(
+	z.object({
+		contentId: z.string(),
+	}),
+	async ({ contentId }) => {
+		// Check authentication
+		const event = getRequestEvent() as RequestEvent;
+		if (!event.locals.user) {
+			throw redirect(303, "/auth/login");
+		}
+
+		const userId = event.locals.user.id;
+
+		try {
+			// Check if user owns this content
+			const contentResult = await db
+				.select({
+					userId: contents.userId,
+				})
+				.from(contents)
+				.where(eq(contents.id, contentId))
+				.limit(1);
+
+			if (contentResult.length === 0) {
+				throw new Error("Content not found");
+			}
+
+			const content = contentResult[0];
+
+			// Check if user owns this content
+			if (content.userId !== userId) {
+				throw new Error("Unauthorized: You don't own this content");
+			}
+
+			// Delete the content
+			await db.delete(contents).where(eq(contents.id, contentId));
+
+			return {
+				success: true,
+			};
+		} catch (error) {
+			console.error("Error deleting content:", error);
+			throw new Error("Failed to delete content");
+		}
+	}
+);
+
+// Bulk toggle content visibility
+export const bulkToggleContentVisibility = command(
+	z.object({
+		contentIds: z.array(z.string()),
+		visibility: z.enum(["public", "private"]),
+	}),
+	async ({ contentIds, visibility }) => {
+		// Check authentication
+		const event = getRequestEvent() as RequestEvent;
+		if (!event.locals.user) {
+			throw redirect(303, "/auth/login");
+		}
+
+		const userId = event.locals.user.id;
+
+		try {
+			// Update visibility for all specified contents owned by the user
+			await db
+				.update(contents)
+				.set({
+					visibility: visibility,
+					updatedAt: new Date(),
+				})
+				.where(
+					and(
+						eq(contents.userId, userId),
+						sql`id IN (${sql.join(
+							contentIds.map((id) => sql`${id}`),
+							sql`, `
+						)})`
+					)
+				);
+
+			return {
+				success: true,
+			};
+		} catch (error) {
+			console.error("Error bulk toggling content visibility:", error);
+			throw new Error("Failed to bulk toggle content visibility");
+		}
+	}
+);
+
+// Bulk delete contents
+export const bulkDeleteContents = command(
+	z.object({
+		contentIds: z.array(z.string()),
+	}),
+	async ({ contentIds }) => {
+		// Check authentication
+		const event = getRequestEvent() as RequestEvent;
+		if (!event.locals.user) {
+			throw redirect(303, "/auth/login");
+		}
+
+		const userId = event.locals.user.id;
+
+		try {
+			// Delete all specified contents owned by the user
+			await db.delete(contents).where(
+				and(
+					eq(contents.userId, userId),
+					sql`id IN (${sql.join(
+						contentIds.map((id) => sql`${id}`),
+						sql`, `
+					)})`
+				)
+			);
+
+			return {
+				success: true,
+			};
+		} catch (error) {
+			console.error("Error bulk deleting contents:", error);
+			throw new Error("Failed to bulk delete contents");
+		}
+	}
+);

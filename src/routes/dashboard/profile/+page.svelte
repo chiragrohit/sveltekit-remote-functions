@@ -1,6 +1,12 @@
 <script lang="ts">
 	import { getUser, updateName } from "$lib/api/auth.remote";
-	import { getUserContents } from "$lib/api/content.remote";
+	import {
+		getUserContents,
+		deleteContent,
+		bulkDeleteContents,
+		bulkToggleContentVisibility,
+		toggleContentVisibility,
+	} from "$lib/api/content.remote";
 	import { Button } from "$lib/components/ui/button";
 	import { Input } from "$lib/components/ui/input";
 	import { Label } from "$lib/components/ui/label";
@@ -31,6 +37,8 @@
 		FlexRender,
 	} from "$lib/components/ui/data-table";
 	import * as Select from "$lib/components/ui/select/index.js";
+	import { Checkbox } from "$lib/components/ui/checkbox";
+	import { ContentTable } from "$lib/components"; // Import the new component
 
 	let isEditing = $state(false);
 	let name = $state("");
@@ -44,6 +52,9 @@
 	let contentsError = $state<string | null>(null);
 	let searchQuery = $state("");
 	let visibilityFilter = $state("all");
+
+	// Selection state - track selected content IDs
+	let selectedContentIds = $state<Set<string>>(new Set());
 
 	// Define options for visibility filter
 	const visibilityOptions = [
@@ -142,13 +153,145 @@
 		}
 	};
 
+	// Delete a single content item
+	const deleteContentItem = async (contentId: string) => {
+		if (!confirm("Are you sure you want to delete this content?")) return;
+
+		try {
+			await deleteContent({ contentId });
+			// Update UI instantly without refresh
+			userContents = userContents.filter(
+				(content) => content.id !== contentId
+			);
+			filteredContents = filteredContents.filter(
+				(content) => content.id !== contentId
+			);
+			// Remove from selection if it was selected
+			selectedContentIds.delete(contentId);
+			selectedContentIds = new Set(selectedContentIds); // Trigger reactivity
+		} catch (err) {
+			contentsError = "Failed to delete content";
+			console.error("Error deleting content:", err);
+		}
+	};
+
+	// Toggle visibility of a single content item
+	const toggleContentItemVisibility = async (contentId: string) => {
+		try {
+			const response = await toggleContentVisibility({ contentId });
+			// Update UI instantly without refresh
+			userContents = userContents.map((content) =>
+				content.id === contentId
+					? { ...content, visibility: response.visibility }
+					: content
+			);
+			filteredContents = filteredContents.map((content) =>
+				content.id === contentId
+					? { ...content, visibility: response.visibility }
+					: content
+			);
+		} catch (err) {
+			contentsError = "Failed to toggle content visibility";
+			console.error("Error toggling content visibility:", err);
+		}
+	};
+
+	// Bulk delete selected contents
+	const bulkDeleteSelected = async () => {
+		if (selectedContentIds.size === 0) {
+			alert("Please select at least one content to delete");
+			return;
+		}
+
+		if (
+			!confirm(
+				`Are you sure you want to delete ${selectedContentIds.size} content(s)?`
+			)
+		)
+			return;
+
+		try {
+			const contentIds = Array.from(selectedContentIds);
+			await bulkDeleteContents({ contentIds });
+			// Update UI instantly without refresh
+			userContents = userContents.filter(
+				(content) => !contentIds.includes(content.id)
+			);
+			filteredContents = filteredContents.filter(
+				(content) => !contentIds.includes(content.id)
+			);
+			// Clear selection
+			selectedContentIds = new Set();
+		} catch (err) {
+			contentsError = "Failed to delete selected contents";
+			console.error("Error deleting selected contents:", err);
+		}
+	};
+
+	// Bulk toggle visibility of selected contents
+	const bulkToggleSelectedVisibility = async (
+		visibility: "public" | "private"
+	) => {
+		if (selectedContentIds.size === 0) {
+			alert("Please select at least one content to update");
+			return;
+		}
+
+		try {
+			const contentIds = Array.from(selectedContentIds);
+			await bulkToggleContentVisibility({ contentIds, visibility });
+			// Update UI instantly without refresh
+			userContents = userContents.map((content) =>
+				contentIds.includes(content.id)
+					? { ...content, visibility }
+					: content
+			);
+			filteredContents = filteredContents.map((content) =>
+				contentIds.includes(content.id)
+					? { ...content, visibility }
+					: content
+			);
+			// Clear selection
+			selectedContentIds = new Set();
+		} catch (err) {
+			contentsError = `Failed to set selected contents to ${visibility}`;
+			console.error("Error toggling selected contents visibility:", err);
+		}
+	};
+
+	// Toggle selection of a content item
+	function toggleContentSelection(contentId: string) {
+		if (selectedContentIds.has(contentId)) {
+			selectedContentIds.delete(contentId);
+		} else {
+			selectedContentIds.add(contentId);
+		}
+		selectedContentIds = new Set(selectedContentIds); // Trigger reactivity
+	}
+
+	// Toggle select all
+	function toggleSelectAll() {
+		if (
+			selectedContentIds.size === filteredContents.length &&
+			filteredContents.length > 0
+		) {
+			// Deselect all
+			selectedContentIds = new Set();
+		} else {
+			// Select all
+			selectedContentIds = new Set(
+				filteredContents.map((content) => content.id)
+			);
+		}
+	}
+
 	// Fetch user contents when component mounts
 	onMount(async () => {
 		await fetchUserContents();
 	});
 </script>
 
-<div class="space-y-6 mx-auto max-w-3xl mt-6">
+<div class="space-y-6 mx-auto max-w-3xl p-6">
 	<div
 		class="flex justify-between items-start md:items-center flex-col md:flex-row gap-4"
 	>
@@ -285,6 +428,35 @@
 					</Select.Select>
 				</div>
 
+				<!-- Bulk Action Buttons -->
+				{#if selectedContentIds.size > 0}
+					<div class="flex gap-2 mb-4">
+						<Button
+							variant="destructive"
+							size="sm"
+							onclick={bulkDeleteSelected}
+						>
+							Delete Selected ({selectedContentIds.size})
+						</Button>
+						<Button
+							variant="outline"
+							size="sm"
+							onclick={() =>
+								bulkToggleSelectedVisibility("public")}
+						>
+							Set Public
+						</Button>
+						<Button
+							variant="outline"
+							size="sm"
+							onclick={() =>
+								bulkToggleSelectedVisibility("private")}
+						>
+							Set Private
+						</Button>
+					</div>
+				{/if}
+
 				{#if isLoadingContents}
 					<div class="flex justify-center items-center h-32">
 						<div
@@ -299,71 +471,15 @@
 						<span class="block sm:inline">{contentsError}</span>
 					</div>
 				{:else if filteredContents.length > 0 && table}
-					<div class="rounded-md border">
-						<Table>
-							<TableHeader>
-								{#each table.getHeaderGroups() as headerGroup}
-									<TableRow>
-										{#each headerGroup.headers as header}
-											<TableHead>
-												<FlexRender
-													content={header.column
-														.columnDef.header}
-													context={header.getContext()}
-												/>
-											</TableHead>
-										{/each}
-									</TableRow>
-								{/each}
-							</TableHeader>
-							<TableBody>
-								{#each table.getRowModel().rows as row}
-									<TableRow>
-										{#each row.getVisibleCells() as cell}
-											<TableCell>
-												{#if cell.column.id === "title"}
-													<a
-														href={`/dashboard/article/${row.original.id}`}
-														class="font-medium hover:underline"
-													>
-														{row.getValue(
-															"title"
-														) || "Untitled"}
-													</a>
-												{:else if cell.column.id === "publishedAt"}
-													{formatDate(
-														row.getValue(
-															"publishedAt"
-														)
-													)}
-												{:else if cell.column.id === "visibility"}
-													{#if row.getValue("visibility") === "private"}
-														<Badge variant="outline"
-															>Private</Badge
-														>
-													{:else}
-														<Badge
-															variant="secondary"
-															>Public</Badge
-														>
-													{/if}
-												{/if}
-											</TableCell>
-										{/each}
-									</TableRow>
-								{:else}
-									<TableRow>
-										<TableCell
-											colspan={columns.length}
-											class="h-24 text-center"
-										>
-											No results.
-										</TableCell>
-									</TableRow>
-								{/each}
-							</TableBody>
-						</Table>
-					</div>
+					<ContentTable
+						{table}
+						bind:selectedContentIds
+						onToggleSelection={toggleContentSelection}
+						onSelectAll={toggleSelectAll}
+						onDelete={deleteContentItem}
+						onToggleVisibility={toggleContentItemVisibility}
+						{formatDate}
+					/>
 				{:else}
 					<div class="text-center py-8">
 						<p class="text-gray-500">
